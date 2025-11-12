@@ -260,18 +260,6 @@ curl -X POST http://localhost:5000/send_message \
   }'
 ```
 
-### Отправить тестовое сообщение пользователю 465693640
-Отправьте POST-запрос на `/send_message`, чтобы отправить тестовое сообщение пользователю с ID 465693640:
-```bash
-curl -X POST http://localhost:5000/send_message \
-  -H "Authorization: Bearer YOUR_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "chat_id": "465693640",
-    "text": "Это тестовое сообщение от бота"
-  }'
-```
-
 ### Отправить сообщение в канал
 Отправьте POST-запрос на `/send_to_channel` с JSON-данными и заголовком аутентификации:
 ```bash
