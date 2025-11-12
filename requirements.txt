@@ -1,0 +1,5 @@
+python-telegram-bot==20.8
+asyncio
+aiohttp
+python-dotenv==1.0
+flask==2.3.3

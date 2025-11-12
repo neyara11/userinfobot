@@ -1,0 +1,13 @@
+services:
+  bot:
+    build: .
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_TOKEN=${API_TOKEN}
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - "5000:5000"
