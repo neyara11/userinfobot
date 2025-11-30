@@ -229,6 +229,22 @@ curl -X POST http://localhost:5000/send_to_channel \
   }'
 ```
 
+### Discord Webhook Support
+The API now supports sending messages to Discord channels via webhooks. Instead of a Telegram ID, pass the full Discord webhook URL as `chat_id` or `channel_id`. The bot will automatically detect and send the message via HTTP POST to the webhook.
+
+Example for Discord:
+```bash
+curl -X POST http://localhost:5000/send_to_channel \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_id": "https://discord.com/api/webhooks/1234567890/abcDEF...",
+    "text": "Your message text"
+  }'
+```
+
+Note: Webhook URLs are specific to a single Discord channel. Create them in Discord channel settings > Integrations > Webhooks.
+
 ## Использование
 
 1. Перешлите любое сообщение боту
@@ -271,6 +287,22 @@ curl -X POST http://localhost:5000/send_to_channel \
     "text": "Текст вашего сообщения"
   }'
 ```
+
+### Поддержка Discord Webhooks
+API теперь поддерживает отправку сообщений в каналы Discord через вебхуки. Вместо ID Telegram передайте полный URL Discord webhook в поле `chat_id` или `channel_id`. Бот автоматически определит тип и отправит сообщение через HTTP POST на webhook.
+
+Пример для Discord:
+```bash
+curl -X POST http://localhost:5000/send_to_channel \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_id": "https://discord.com/api/webhooks/1234567890/abcDEF...",
+    "text": "Текст вашего сообщения"
+  }'
+```
+
+Примечание: URL вебхуков специфичны для одного канала Discord. Создайте их в настройках канала Discord > Интеграции > Вебхуки.
 
 ## Безопасность
 

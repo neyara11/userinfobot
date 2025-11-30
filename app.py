@@ -6,6 +6,7 @@ from telegram.ext import Application
 import os
 from typing import Dict, Any, Optional
 import json
+import requests
 from flask import Flask, request, jsonify
 import threading
 import secrets
@@ -197,7 +198,23 @@ def send_message_api():
     if not chat_id or not text:
         return jsonify({'error': 'chat_id and text are required'}), 400
     
-    # Run the async function in the bot's event loop
+    # Check if it's a Discord webhook URL
+    if chat_id.startswith('https://discord.com/api/webhooks/'):
+        try:
+            payload = {'content': text}
+            response = requests.post(
+                chat_id,
+                data=json.dumps(payload),
+                headers={'Content-Type': 'application/json'}
+            )
+            if response.status_code == 204:
+                return jsonify({'status': 'success'})
+            else:
+                return jsonify({'error': f'Discord webhook failed: {response.status_code} - {response.text}'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    # Otherwise, treat as Telegram chat ID
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -217,7 +234,23 @@ def send_to_channel_api():
     if not channel_id or not text:
         return jsonify({'error': 'channel_id and text are required'}), 400
     
-    # Run the async function in the bot's event loop
+    # Check if it's a Discord webhook URL
+    if channel_id.startswith('https://discord.com/api/webhooks/'):
+        try:
+            payload = {'content': text}
+            response = requests.post(
+                channel_id,
+                data=json.dumps(payload),
+                headers={'Content-Type': 'application/json'}
+            )
+            if response.status_code == 204:
+                return jsonify({'status': 'success'})
+            else:
+                return jsonify({'error': f'Discord webhook failed: {response.status_code} - {response.text}'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    
+    # Otherwise, treat as Telegram channel ID
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

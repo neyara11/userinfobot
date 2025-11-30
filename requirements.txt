@@ -3,3 +3,4 @@ asyncio
 aiohttp
 python-dotenv==1.0
 flask==2.3.3
+requests>=2.25.1
