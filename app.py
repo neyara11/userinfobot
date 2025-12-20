@@ -12,6 +12,7 @@ import threading
 import secrets
 import base64
 from io import BytesIO
+import time
 
 # Enable logging
 logging.basicConfig(
@@ -149,16 +150,18 @@ class UserInfoBot:
         logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
     def get_bot(self):
-        """Получить инстанс бота (синхронный)"""
-        if not self.bot:
-            # Если бот ещё не инициализирован, создать приложение
-            if not self.application:
-                logger.warning("Bot application not initialized. Creating temporary bot for sending message.")
-                from telegram import Bot
-                self.bot = Bot(token=self.token)
-            else:
-                self.bot = self.application.bot
-        return self.bot
+        """Получить инстанс бота из приложения"""
+        # Ждём инициализации приложения (максимум 10 секунд)
+        for i in range(100):
+            if self.application and self.application.bot:
+                logger.info("Using bot from application")
+                return self.application.bot
+            time.sleep(0.1)
+        
+        # Fallback: создать временный bot если приложение не инициализировалось
+        logger.warning("Bot application not initialized. Creating temporary bot for sending message.")
+        from telegram import Bot
+        return Bot(token=self.token)
 
     async def send_message_async(self, chat_id: str, text: str, **kwargs):
         """Send a message to a chat ID (асинхронно)."""
