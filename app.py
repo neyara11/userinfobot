@@ -10,6 +10,8 @@ import requests
 from flask import Flask, request, jsonify
 import threading
 import secrets
+import base64
+from io import BytesIO
 
 # Enable logging
 logging.basicConfig(
@@ -151,6 +153,50 @@ class UserInfoBot:
         result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
         return result
 
+    async def send_photo(self, chat_id: str, photo: str, caption: str = None, **kwargs):
+        """Отправить фото с подписью. photo может быть URL-адресом или file_id"""
+        temp_app = Application.builder().token(self.token).build()
+        bot = temp_app.bot
+        result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
+        return result
+
+    async def send_media(self, chat_id: str, text: str = None, image_url: str = None, **kwargs):
+        """Универсальный метод для отправки текста или фото с подписью.
+        image_url может быть:
+        - URL адресом (https://...)
+        - base64 строкой (data:image/...;base64,...)
+        - просто base64 данными
+        """
+        temp_app = Application.builder().token(self.token).build()
+        bot = temp_app.bot
+        
+        if image_url:
+            # Проверить если это base64
+            if image_url.startswith('data:image/') or not image_url.startswith('http'):
+                try:
+                    # Если это data URL, извлечь base64 часть
+                    if image_url.startswith('data:image/'):
+                        base64_data = image_url.split(',')[1]
+                    else:
+                        base64_data = image_url
+                    
+                    # Декодировать base64 в бинарные данные
+                    image_data = base64.b64decode(base64_data)
+                    photo = BytesIO(image_data)
+                except Exception as e:
+                    logger.error(f"Error decoding base64 image: {e}")
+                    photo = image_url  # Fallback to treating as URL
+            else:
+                # Это URL, использовать как есть
+                photo = image_url
+            
+            # Отправить фото с текстом как подписью
+            result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
+        else:
+            # Отправить просто текст
+            result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        return result
+
     async def run_async(self, token: Optional[str] = None):
         """Run the bot with the provided token asynchronously."""
         if token is not None:
@@ -194,14 +240,19 @@ def send_message_api():
     data = request.get_json()
     chat_id = data.get('chat_id') if data else None
     text = data.get('text') if data else None
+    image_url = data.get('image_url') if data else None  # URL, file_id, или base64 строка
     
-    if not chat_id or not text:
-        return jsonify({'error': 'chat_id and text are required'}), 400
+    if not chat_id or (not text and not image_url):
+        return jsonify({'error': 'chat_id and either text or image_url are required. image_url может быть URL, file_id или base64'}), 400
     
     # Check if it's a Discord webhook URL
     if chat_id.startswith('https://discord.com/api/webhooks/'):
         try:
-            payload = {'content': text}
+            if image_url:
+                # Discord doesn't support images the same way, so we'll just send the text with the image URL
+                payload = {'content': f"{text}\n{image_url}" if text else image_url}
+            else:
+                payload = {'content': text}
             response = requests.post(
                 chat_id,
                 data=json.dumps(payload),
@@ -218,7 +269,7 @@ def send_message_api():
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(user_info_bot.send_message(chat_id, text))
+        result = loop.run_until_complete(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
         loop.close()
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
@@ -230,14 +281,19 @@ def send_to_channel_api():
     data = request.get_json()
     channel_id = data.get('channel_id') if data else None
     text = data.get('text') if data else None
+    image_url = data.get('image_url') if data else None  # URL, file_id, или base64 строка
     
-    if not channel_id or not text:
-        return jsonify({'error': 'channel_id and text are required'}), 400
+    if not channel_id or (not text and not image_url):
+        return jsonify({'error': 'channel_id and either text or image_url are required. image_url может быть URL, file_id или base64'}), 400
     
     # Check if it's a Discord webhook URL
     if channel_id.startswith('https://discord.com/api/webhooks/'):
         try:
-            payload = {'content': text}
+            if image_url:
+                # Discord doesn't support images the same way, so we'll just send the text with the image URL
+                payload = {'content': f"{text}\n{image_url}" if text else image_url}
+            else:
+                payload = {'content': text}
             response = requests.post(
                 channel_id,
                 data=json.dumps(payload),
@@ -254,7 +310,7 @@ def send_to_channel_api():
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(user_info_bot.send_message(channel_id, text))
+        result = loop.run_until_complete(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
         loop.close()
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:

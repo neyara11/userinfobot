@@ -229,6 +229,50 @@ curl -X POST http://localhost:5000/send_to_channel \
   }'
 ```
 
+### Send an image with optional text
+Both `/send_message` and `/send_to_channel` endpoints support sending images. The `image_url` parameter accepts images in three formats:
+- **Direct URL**: `https://example.com/photo.jpg`
+- **Base64 string**: `/9j/4AAQSkZJRg...` (raw base64 data)
+- **Data URL**: `data:image/jpeg;base64,/9j/4AAQSkZJRg...`
+
+Example with image URL:
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "user_chat_id",
+    "text": "Check this image!",
+    "image_url": "https://example.com/photo.jpg"
+  }'
+```
+
+Example with base64 image (text will be used as caption):
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "user_chat_id",
+    "text": "Here is my image",
+    "image_url": "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAA..."
+  }'
+```
+
+Example with data URL:
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "user_chat_id",
+    "text": "Here is my image",
+    "image_url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAA..."
+  }'
+```
+
+**Note:** For image-only requests without text, simply omit the `text` field. At least one of `text` or `image_url` is required.
+
 ### Discord Webhook Support
 The API now supports sending messages to Discord channels via webhooks. Instead of a Telegram ID, pass the full Discord webhook URL as `chat_id` or `channel_id`. The bot will automatically detect and send the message via HTTP POST to the webhook.
 
@@ -287,6 +331,50 @@ curl -X POST http://localhost:5000/send_to_channel \
     "text": "Текст вашего сообщения"
   }'
 ```
+
+### Отправить изображение с опциональным текстом
+Оба эндпоинта `/send_message` и `/send_to_channel` поддерживают отправку изображений. Параметр `image_url` принимает изображения в трёх форматах:
+- **Прямая ссылка**: `https://example.com/photo.jpg`
+- **Base64 строка**: `/9j/4AAQSkZJRg...` (чистые base64 данные)
+- **Data URL**: `data:image/jpeg;base64,/9j/4AAQSkZJRg...`
+
+Пример с URL изображения:
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "id_чата_пользователя",
+    "text": "Посмотрите это изображение!",
+    "image_url": "https://example.com/photo.jpg"
+  }'
+```
+
+Пример с base64 изображением (текст будет использован как подпись):
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "id_чата_пользователя",
+    "text": "Вот моё изображение",
+    "image_url": "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAA..."
+  }'
+```
+
+Пример с Data URL:
+```bash
+curl -X POST http://localhost:5000/send_message \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chat_id": "id_чата_пользователя",
+    "text": "Вот моё изображение",
+    "image_url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAA..."
+  }'
+```
+
+**Примечание:** Для запросов только с изображением без текста просто опустите поле `text`. Требуется хотя бы одно из полей: `text` или `image_url`.
 
 ### Поддержка Discord Webhooks
 API теперь поддерживает отправку сообщений в каналы Discord через вебхуки. Вместо ID Telegram передайте полный URL Discord webhook в поле `chat_id` или `channel_id`. Бот автоматически определит тип и отправит сообщение через HTTP POST на webhook.
