@@ -186,14 +186,18 @@ class UserInfoBot:
         """
         bot = self.get_bot()
         
+        logger.warning(f">>> send_media CALLED: chat_id={chat_id}, text={text is not None}, image_url={image_url is not None}")
+        if image_url:
+            logger.warning(f">>> image_url type: {type(image_url)}, length: {len(image_url) if image_url else 0}, first 100 chars: {image_url[:100] if image_url else 'NONE'}")
+        
         try:
             if image_url:
-                logger.info(f"send_media called with image_url (first 50 chars): {image_url[:50]}")
+                logger.warning(f">>> SENDING PHOTO! image_url={image_url[:100]}")
                 
                 # Проверить если это base64
                 if image_url.startswith('data:image/') or not image_url.startswith('http'):
                     try:
-                        logger.info("Detected base64 image, attempting to decode...")
+                        logger.warning(">>> Detected base64 image, attempting to decode...")
                         # Если это data URL, извлечь base64 часть
                         if image_url.startswith('data:image/'):
                             base64_data = image_url.split(',')[1]
@@ -204,26 +208,26 @@ class UserInfoBot:
                         image_data = base64.b64decode(base64_data)
                         photo = BytesIO(image_data)
                         photo.seek(0)  # Сбросить позицию на начало
-                        logger.info(f"Successfully decoded base64 image, size: {len(image_data)} bytes")
+                        logger.warning(f">>> Successfully decoded base64 image, size: {len(image_data)} bytes")
                     except Exception as e:
-                        logger.error(f"Error decoding base64 image: {e}", exc_info=True)
+                        logger.error(f">>> Error decoding base64 image: {e}", exc_info=True)
                         photo = image_url  # Fallback to treating as URL
                 else:
                     # Это URL, использовать как есть
                     photo = image_url
-                    logger.info(f"Detected URL image: {image_url}")
+                    logger.warning(f">>> Detected URL image, sending to Telegram: {photo[:100]}")
                 
                 # Отправить фото с текстом как подписью
-                logger.info(f"Sending photo to chat_id: {chat_id}, caption length: {len(text) if text else 0}")
+                logger.warning(f">>> Calling bot.send_photo with photo={photo}, caption={text}")
                 result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
-                logger.info(f"Photo sent successfully, message_id: {result.message_id}")
+                logger.warning(f">>> Photo sent successfully, message_id: {result.message_id}")
             else:
                 # Отправить просто текст
-                logger.info(f"Sending text message to chat_id: {chat_id}, text length: {len(text) if text else 0}")
+                logger.warning(f">>> SENDING TEXT MESSAGE (no image_url)")
                 result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
-                logger.info(f"Message sent successfully, message_id: {result.message_id}")
+                logger.warning(f">>> Message sent successfully, message_id: {result.message_id}")
         except Exception as e:
-            logger.error(f"Error in send_media: {e}", exc_info=True)
+            logger.error(f">>> ERROR in send_media: {e}", exc_info=True)
             raise
         
         return result
