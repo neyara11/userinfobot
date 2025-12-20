@@ -20,6 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+APP_VERSION = "2.1.0-photo-support"
+logger.info(f"=============== App Version: {APP_VERSION} ===============")
+
 class UserInfoBot:
     def __init__(self, token: str):
         self.token = token
