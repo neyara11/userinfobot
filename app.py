@@ -145,18 +145,25 @@ class UserInfoBot:
         """Log the error and send a telegram message to notify the developer."""
         logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
+    async def get_bot(self):
+        """Получить инстанс бота"""
+        if not self.bot:
+            # Если бот ещё не инициализирован, создать приложение
+            if not self.application:
+                self.application = Application.builder().token(self.token).build()
+                await self.application.initialize()
+            self.bot = self.application.bot
+        return self.bot
+
     async def send_message(self, chat_id: str, text: str, **kwargs):
         """Send a message to a chat ID."""
-        # Create a temporary application just for sending the message
-        temp_app = Application.builder().token(self.token).build()
-        bot = temp_app.bot
+        bot = await self.get_bot()
         result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
         return result
 
     async def send_photo(self, chat_id: str, photo: str, caption: str = None, **kwargs):
         """Отправить фото с подписью. photo может быть URL-адресом или file_id"""
-        temp_app = Application.builder().token(self.token).build()
-        bot = temp_app.bot
+        bot = await self.get_bot()
         result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
         return result
 
@@ -167,34 +174,48 @@ class UserInfoBot:
         - base64 строкой (data:image/...;base64,...)
         - просто base64 данными
         """
-        temp_app = Application.builder().token(self.token).build()
-        bot = temp_app.bot
+        bot = await self.get_bot()
         
-        if image_url:
-            # Проверить если это base64
-            if image_url.startswith('data:image/') or not image_url.startswith('http'):
-                try:
-                    # Если это data URL, извлечь base64 часть
-                    if image_url.startswith('data:image/'):
-                        base64_data = image_url.split(',')[1]
-                    else:
-                        base64_data = image_url
-                    
-                    # Декодировать base64 в бинарные данные
-                    image_data = base64.b64decode(base64_data)
-                    photo = BytesIO(image_data)
-                except Exception as e:
-                    logger.error(f"Error decoding base64 image: {e}")
-                    photo = image_url  # Fallback to treating as URL
+        try:
+            if image_url:
+                logger.info(f"send_media called with image_url (first 50 chars): {image_url[:50]}")
+                
+                # Проверить если это base64
+                if image_url.startswith('data:image/') or not image_url.startswith('http'):
+                    try:
+                        logger.info("Detected base64 image, attempting to decode...")
+                        # Если это data URL, извлечь base64 часть
+                        if image_url.startswith('data:image/'):
+                            base64_data = image_url.split(',')[1]
+                        else:
+                            base64_data = image_url
+                        
+                        # Декодировать base64 в бинарные данные
+                        image_data = base64.b64decode(base64_data)
+                        photo = BytesIO(image_data)
+                        photo.seek(0)  # Сбросить позицию на начало
+                        logger.info(f"Successfully decoded base64 image, size: {len(image_data)} bytes")
+                    except Exception as e:
+                        logger.error(f"Error decoding base64 image: {e}", exc_info=True)
+                        photo = image_url  # Fallback to treating as URL
+                else:
+                    # Это URL, использовать как есть
+                    photo = image_url
+                    logger.info(f"Detected URL image: {image_url}")
+                
+                # Отправить фото с текстом как подписью
+                logger.info(f"Sending photo to chat_id: {chat_id}, caption length: {len(text) if text else 0}")
+                result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
+                logger.info(f"Photo sent successfully, message_id: {result.message_id}")
             else:
-                # Это URL, использовать как есть
-                photo = image_url
-            
-            # Отправить фото с текстом как подписью
-            result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
-        else:
-            # Отправить просто текст
-            result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+                # Отправить просто текст
+                logger.info(f"Sending text message to chat_id: {chat_id}, text length: {len(text) if text else 0}")
+                result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+                logger.info(f"Message sent successfully, message_id: {result.message_id}")
+        except Exception as e:
+            logger.error(f"Error in send_media: {e}", exc_info=True)
+            raise
+        
         return result
 
     async def run_async(self, token: Optional[str] = None):
