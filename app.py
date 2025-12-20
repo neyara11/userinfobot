@@ -184,7 +184,7 @@ class UserInfoBot:
         - base64 строкой (data:image/...;base64,...)
         - просто base64 данными
         """
-        bot = await self.get_bot()
+        bot = self.get_bot()
         
         try:
             if image_url:
@@ -273,6 +273,8 @@ def send_message_api():
     text = data.get('text') if data else None
     image_url = data.get('image_url') if data else None  # URL, file_id, или base64 строка
     
+    logger.info(f"send_message_api called: chat_id={chat_id}, has_text={bool(text)}, has_image_url={bool(image_url)}")
+    
     if not chat_id or (not text and not image_url):
         return jsonify({'error': 'chat_id and either text or image_url are required. image_url может быть URL, file_id или base64'}), 400
     
@@ -294,16 +296,20 @@ def send_message_api():
             else:
                 return jsonify({'error': f'Discord webhook failed: {response.status_code} - {response.text}'}), 500
         except Exception as e:
+            logger.error(f"Discord webhook error: {e}", exc_info=True)
             return jsonify({'error': str(e)}), 500
     
     # Otherwise, treat as Telegram chat ID
     try:
+        logger.info(f"Preparing to send media via Telegram. image_url={image_url}")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         result = loop.run_until_complete(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
         loop.close()
+        logger.info(f"Successfully sent message/photo with message_id: {result.message_id}")
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
+        logger.error(f"Error in send_message_api: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/send_to_channel', methods=['POST'])
