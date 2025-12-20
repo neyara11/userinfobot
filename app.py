@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from telegram.ext import Application
 import os
@@ -145,27 +145,37 @@ class UserInfoBot:
         """Log the error and send a telegram message to notify the developer."""
         logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
-    async def get_bot(self):
-        """Получить инстанс бота"""
+    def get_bot(self):
+        """Получить инстанс бота (синхронный)"""
         if not self.bot:
             # Если бот ещё не инициализирован, создать приложение
             if not self.application:
-                self.application = Application.builder().token(self.token).build()
-                await self.application.initialize()
-            self.bot = self.application.bot
+                logger.warning("Bot application not initialized. Creating temporary bot for sending message.")
+                from telegram import Bot
+                self.bot = Bot(token=self.token)
+            else:
+                self.bot = self.application.bot
         return self.bot
 
-    async def send_message(self, chat_id: str, text: str, **kwargs):
-        """Send a message to a chat ID."""
-        bot = await self.get_bot()
+    async def send_message_async(self, chat_id: str, text: str, **kwargs):
+        """Send a message to a chat ID (асинхронно)."""
+        bot = self.get_bot()
         result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
         return result
 
-    async def send_photo(self, chat_id: str, photo: str, caption: str = None, **kwargs):
-        """Отправить фото с подписью. photo может быть URL-адресом или file_id"""
-        bot = await self.get_bot()
+    async def send_photo_async(self, chat_id: str, photo: str, caption: str = None, **kwargs):
+        """Отправить фото с подписью (асинхронно)"""
+        bot = self.get_bot()
         result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
         return result
+
+    async def send_message(self, chat_id: str, text: str, **kwargs):
+        """Send a message to a chat ID."""
+        return await self.send_message_async(chat_id, text, **kwargs)
+
+    async def send_photo(self, chat_id: str, photo: str, caption: str = None, **kwargs):
+        """Отправить фото с подписью. photo может быть URL-адресом или file_id"""
+        return await self.send_photo_async(chat_id, photo, caption, **kwargs)
 
     async def send_media(self, chat_id: str, text: str = None, image_url: str = None, **kwargs):
         """Универсальный метод для отправки текста или фото с подписью.
