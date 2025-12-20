@@ -309,10 +309,8 @@ def send_message_api():
     # Otherwise, treat as Telegram chat ID
     try:
         logger.info(f"Preparing to send media via Telegram. image_url={image_url}")
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
-        loop.close()
+        # Use asyncio.run to avoid event loop issues
+        result = asyncio.run(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
         logger.info(f"Successfully sent message/photo with message_id: {result.message_id}")
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
@@ -352,10 +350,8 @@ def send_to_channel_api():
     
     # Otherwise, treat as Telegram channel ID
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
-        loop.close()
+        # Use asyncio.run to avoid event loop issues
+        result = asyncio.run(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
