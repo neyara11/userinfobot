@@ -13,6 +13,7 @@ import secrets
 import base64
 from io import BytesIO
 import time
+import concurrent.futures
 
 # Enable logging
 logging.basicConfig(
@@ -21,7 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "2.1.0-photo-support"
+APP_VERSION = "2.2.0-event-loop-fix"
 logger.info(f"=============== App Version: {APP_VERSION} ===============")
 
 class UserInfoBot:
@@ -29,6 +30,7 @@ class UserInfoBot:
         self.token = token
         self.application = None
         self.bot = None
+        self.loop = None  # Event loop из telegram потока
         self.translations = {
             'en': {
                 'forwarded_user_info': 'Forwarded User Info:',
@@ -63,7 +65,7 @@ class UserInfoBot:
     def get_text(self, key: str, lang: str = 'en') -> str:
         """Get translated text based on language code"""
         if lang not in self.translations:
-            lang = 'en' # fallback to English
+            lang = 'en'
         return self.translations[lang].get(key, key)
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -149,39 +151,15 @@ class UserInfoBot:
         """Log the error and send a telegram message to notify the developer."""
         logger.error(msg="Exception while handling an update:", exc_info=context.error)
 
-    def get_bot(self):
-        """Получить инстанс бота из приложения"""
-        # Ждём инициализации приложения (максимум 10 секунд)
-        for i in range(100):
-            if self.application and self.application.bot:
-                logger.info("Using bot from application")
-                return self.application.bot
-            time.sleep(0.1)
-        
-        # Fallback: создать временный bot если приложение не инициализировалось
-        logger.warning("Bot application not initialized. Creating temporary bot for sending message.")
-        from telegram import Bot
-        return Bot(token=self.token)
-
-    async def send_message_async(self, chat_id: str, text: str, **kwargs):
-        """Send a message to a chat ID (асинхронно)."""
-        bot = self.get_bot()
-        result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
-        return result
-
-    async def send_photo_async(self, chat_id: str, photo: str, caption: str = None, **kwargs):
-        """Отправить фото с подписью (асинхронно)"""
-        bot = self.get_bot()
-        result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
-        return result
-
     async def send_message(self, chat_id: str, text: str, **kwargs):
         """Send a message to a chat ID."""
-        return await self.send_message_async(chat_id, text, **kwargs)
+        result = await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
+        return result
 
     async def send_photo(self, chat_id: str, photo: str, caption: str = None, **kwargs):
         """Отправить фото с подписью. photo может быть URL-адресом или file_id"""
-        return await self.send_photo_async(chat_id, photo, caption, **kwargs)
+        result = await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=caption, **kwargs)
+        return result
 
     async def send_media(self, chat_id: str, text: str = None, image_url: str = None, **kwargs):
         """Универсальный метод для отправки текста или фото с подписью.
@@ -190,8 +168,6 @@ class UserInfoBot:
         - base64 строкой (data:image/...;base64,...)
         - просто base64 данными
         """
-        bot = self.get_bot()
-        
         logger.warning(f">>> send_media CALLED: chat_id={chat_id}, text={text is not None}, image_url={image_url is not None}")
         if image_url:
             logger.warning(f">>> image_url type: {type(image_url)}, length: {len(image_url) if image_url else 0}, first 100 chars: {image_url[:100] if image_url else 'NONE'}")
@@ -224,13 +200,13 @@ class UserInfoBot:
                     logger.warning(f">>> Detected URL image, sending to Telegram: {photo[:100]}")
                 
                 # Отправить фото с текстом как подписью
-                logger.warning(f">>> Calling bot.send_photo with photo={photo}, caption={text}")
-                result = await bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
+                logger.warning(f">>> Calling bot.send_photo with photo type={type(photo)}, caption={text}")
+                result = await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
                 logger.warning(f">>> Photo sent successfully, message_id: {result.message_id}")
             else:
                 # Отправить просто текст
                 logger.warning(f">>> SENDING TEXT MESSAGE (no image_url)")
-                result = await bot.send_message(chat_id=chat_id, text=text, **kwargs)
+                result = await self.bot.send_message(chat_id=chat_id, text=text, **kwargs)
                 logger.warning(f">>> Message sent successfully, message_id: {result.message_id}")
         except Exception as e:
             logger.error(f">>> ERROR in send_media: {e}", exc_info=True)
@@ -312,8 +288,18 @@ def send_message_api():
     # Otherwise, treat as Telegram chat ID
     try:
         logger.info(f"Preparing to send media via Telegram. image_url={image_url}")
-        # Use asyncio.run to avoid event loop issues
-        result = asyncio.run(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
+        # Use the event loop from telegram thread via run_coroutine_threadsafe
+        if user_info_bot.loop and user_info_bot.loop.is_running():
+            logger.info("Using existing event loop from telegram thread")
+            future = asyncio.run_coroutine_threadsafe(
+                user_info_bot.send_media(chat_id, text=text, image_url=image_url),
+                user_info_bot.loop
+            )
+            result = future.result(timeout=30)
+        else:
+            logger.warning("Event loop not running, using asyncio.run")
+            result = asyncio.run(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
+        
         logger.info(f"Successfully sent message/photo with message_id: {result.message_id}")
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
@@ -353,8 +339,17 @@ def send_to_channel_api():
     
     # Otherwise, treat as Telegram channel ID
     try:
-        # Use asyncio.run to avoid event loop issues
-        result = asyncio.run(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
+        if user_info_bot.loop and user_info_bot.loop.is_running():
+            logger.info("Using existing event loop from telegram thread")
+            future = asyncio.run_coroutine_threadsafe(
+                user_info_bot.send_media(channel_id, text=text, image_url=image_url),
+                user_info_bot.loop
+            )
+            result = future.result(timeout=30)
+        else:
+            logger.warning("Event loop not running, using asyncio.run")
+            result = asyncio.run(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
+        
         return jsonify({'status': 'success', 'message_id': result.message_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -368,12 +363,10 @@ user_info_bot = UserInfoBot(bot_token)
 
 # Start the Telegram bot in a separate thread
 def run_telegram_bot():
-    import asyncio
-    from telegram.ext import Application
-    
     # Create a new event loop for the thread
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    user_info_bot.loop = loop  # Save the loop reference
     
     async def start_bot():
         if not user_info_bot.application:
