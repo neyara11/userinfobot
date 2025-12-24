@@ -4,3 +4,5 @@ aiohttp
 python-dotenv==1.0
 flask==2.3.3
 requests>=2.25.1
+PySocks>=1.7.1
+aiohttp-socks>=0.8.4

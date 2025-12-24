@@ -14,6 +14,11 @@ import base64
 from io import BytesIO
 import time
 import concurrent.futures
+from proxy_config import proxy_config
+try:
+    from aiohttp_socks import SocksConnector
+except ImportError:
+    SocksConnector = None
 
 # Enable logging
 logging.basicConfig(
@@ -31,6 +36,7 @@ class UserInfoBot:
         self.application = None
         self.bot = None
         self.loop = None  # Event loop из telegram потока
+        self._get_telegram_client_session()  # Инициализировать клиент с прокси если нужен
         self.translations = {
             'en': {
                 'forwarded_user_info': 'Forwarded User Info:',
@@ -67,6 +73,27 @@ class UserInfoBot:
         if lang not in self.translations:
             lang = 'en'
         return self.translations[lang].get(key, key)
+
+    def _get_telegram_client_session(self):
+        """Создать ClientSession с поддержкой SOCKS прокси для Telegram"""
+        if not proxy_config.is_telegram_proxy_enabled():
+            return None
+        
+        if SocksConnector is None:
+            logger.error("aiohttp-socks не установлен, но требуется для SOCKS прокси. Установите: pip install aiohttp-socks")
+            return None
+        
+        try:
+            import aiohttp
+            proxy_url = proxy_config.get_telegram_proxy()
+            logger.info(f"Создаю SOCKS соединитель для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
+            
+            connector = SocksConnector.from_url(proxy_url)
+            session = aiohttp.ClientSession(connector=connector)
+            return session
+        except Exception as e:
+            logger.error(f"Ошибка при создании SOCKS соединителя для Telegram: {e}", exc_info=True)
+            return None
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the /start command is issued."""
@@ -220,7 +247,23 @@ class UserInfoBot:
             self.token = token
             
         if not self.application:
-            self.application = Application.builder().token(self.token).build()
+            # Создать Application с поддержкой SOCKS прокси
+            builder = Application.builder().token(self.token)
+            
+            # Если Telegram прокси включен, попытаться использовать его
+            if proxy_config.is_telegram_proxy_enabled():
+                try:
+                    import aiohttp
+                    if SocksConnector is not None:
+                        proxy_url = proxy_config.get_telegram_proxy()
+                        connector = SocksConnector.from_url(proxy_url)
+                        session = aiohttp.ClientSession(connector=connector)
+                        logger.info(f"Использую SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
+                        builder = builder.get_post(session=session)
+                except Exception as e:
+                    logger.error(f"Ошибка при использовании SOCKS прокси для Telegram: {e}", exc_info=True)
+            
+            self.application = builder.build()
             self.bot = self.application.bot
 
             # Add handlers
@@ -308,7 +351,8 @@ def send_message_api():
                     # Это URL - скачать файл
                     try:
                         logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
-                        response = requests.get(image_url, timeout=30)
+                        proxies = proxy_config.get_discord_proxy_dict()
+                        response = requests.get(image_url, timeout=30, proxies=proxies)
                         response.raise_for_status()
                         image_data = response.content
                         logger.info(f"Discord: Downloaded image, size: {len(image_data)} bytes")
@@ -332,15 +376,18 @@ def send_message_api():
                 data = {'content': text} if text else {}
                 
                 logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
-                response = requests.post(chat_id, files=files, data=data)
+                proxies = proxy_config.get_discord_proxy_dict()
+                response = requests.post(chat_id, files=files, data=data, proxies=proxies)
             else:
                 # Только текст
                 payload = {'content': text}
                 logger.info(f"Discord: Sending text only")
+                proxies = proxy_config.get_discord_proxy_dict()
                 response = requests.post(
                     chat_id,
                     data=json.dumps(payload),
-                    headers={'Content-Type': 'application/json'}
+                    headers={'Content-Type': 'application/json'},
+                    proxies=proxies
                 )
             
             if response.status_code == 204:
@@ -429,7 +476,8 @@ def send_to_channel_api():
                     # Это URL - скачать файл
                     try:
                         logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
-                        response = requests.get(image_url, timeout=30)
+                        proxies = proxy_config.get_discord_proxy_dict()
+                        response = requests.get(image_url, timeout=30, proxies=proxies)
                         response.raise_for_status()
                         image_data = response.content
                         logger.info(f"Discord: Downloaded image, size: {len(image_data)} bytes")
@@ -453,15 +501,18 @@ def send_to_channel_api():
                 data = {'content': text} if text else {}
                 
                 logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
-                response = requests.post(channel_id, files=files, data=data)
+                proxies = proxy_config.get_discord_proxy_dict()
+                response = requests.post(channel_id, files=files, data=data, proxies=proxies)
             else:
                 # Только текст
                 payload = {'content': text}
                 logger.info(f"Discord: Sending text only")
+                proxies = proxy_config.get_discord_proxy_dict()
                 response = requests.post(
                     channel_id,
                     data=json.dumps(payload),
-                    headers={'Content-Type': 'application/json'}
+                    headers={'Content-Type': 'application/json'},
+                    proxies=proxies
                 )
             
             if response.status_code == 204:
@@ -507,7 +558,23 @@ def run_telegram_bot():
     
     async def start_bot():
         if not user_info_bot.application:
-            user_info_bot.application = Application.builder().token(user_info_bot.token).build()
+            # Создать Application с поддержкой SOCKS прокси
+            builder = Application.builder().token(user_info_bot.token)
+            
+            # Если Telegram прокси включен, попытаться использовать его
+            if proxy_config.is_telegram_proxy_enabled():
+                try:
+                    import aiohttp
+                    if SocksConnector is not None:
+                        proxy_url = proxy_config.get_telegram_proxy()
+                        connector = SocksConnector.from_url(proxy_url)
+                        session = aiohttp.ClientSession(connector=connector)
+                        logger.info(f"Используя SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
+                        builder = builder.get_post(session=session)
+                except Exception as e:
+                    logger.error(f"Ошибка при использовании SOCKS прокси для Telegram: {e}", exc_info=True)
+            
+            user_info_bot.application = builder.build()
             user_info_bot.bot = user_info_bot.application.bot
 
             # Add handlers
