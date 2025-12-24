@@ -268,18 +268,86 @@ def send_message_api():
     if chat_id.startswith('https://discord.com/api/webhooks/'):
         try:
             if image_url:
-                # Discord doesn't support images the same way, so we'll just send the text with the image URL
-                payload = {'content': f"{text}\n{image_url}" if text else image_url}
+                # Преобразовать image_url в бинарные данные и отправить как multipart/form-data
+                logger.info(f"Discord: Processing image_url for multipart upload")
+                
+                image_data = None
+                image_filename = 'image.jpg'
+                image_mimetype = 'image/jpeg'
+                
+                # Определить тип image_url и получить данные
+                if image_url.startswith('data:image/'):
+                    # Data URL с base64
+                    try:
+                        mime_part = image_url.split(';')[0].replace('data:', '')
+                        image_mimetype = mime_part
+                        if mime_part == 'image/png':
+                            image_filename = 'image.png'
+                        elif mime_part == 'image/gif':
+                            image_filename = 'image.gif'
+                        elif mime_part == 'image/webp':
+                            image_filename = 'image.webp'
+                        
+                        base64_data = image_url.split(',')[1]
+                        image_data = base64.b64decode(base64_data)
+                        logger.info(f"Discord: Decoded data URL, size: {len(image_data)} bytes")
+                    except Exception as e:
+                        logger.error(f"Discord: Error decoding data URL: {e}")
+                        raise
+                
+                elif not image_url.startswith('http'):
+                    # Обычная base64 строка
+                    try:
+                        image_data = base64.b64decode(image_url)
+                        logger.info(f"Discord: Decoded base64 string, size: {len(image_data)} bytes")
+                    except Exception as e:
+                        logger.error(f"Discord: Error decoding base64: {e}")
+                        raise
+                
+                else:
+                    # Это URL - скачать файл
+                    try:
+                        logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
+                        response = requests.get(image_url, timeout=30)
+                        response.raise_for_status()
+                        image_data = response.content
+                        logger.info(f"Discord: Downloaded image, size: {len(image_data)} bytes")
+                        
+                        # Определить MIME тип из URL если возможно
+                        if image_url.lower().endswith('.png'):
+                            image_mimetype = 'image/png'
+                            image_filename = 'image.png'
+                        elif image_url.lower().endswith('.gif'):
+                            image_mimetype = 'image/gif'
+                            image_filename = 'image.gif'
+                        elif image_url.lower().endswith('.webp'):
+                            image_mimetype = 'image/webp'
+                            image_filename = 'image.webp'
+                    except Exception as e:
+                        logger.error(f"Discord: Error downloading image from URL: {e}")
+                        raise
+                
+                # Отправить в multipart/form-data
+                files = {'file': (image_filename, BytesIO(image_data), image_mimetype)}
+                data = {'content': text} if text else {}
+                
+                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
+                response = requests.post(chat_id, files=files, data=data)
             else:
+                # Только текст
                 payload = {'content': text}
-            response = requests.post(
-                chat_id,
-                data=json.dumps(payload),
-                headers={'Content-Type': 'application/json'}
-            )
+                logger.info(f"Discord: Sending text only")
+                response = requests.post(
+                    chat_id,
+                    data=json.dumps(payload),
+                    headers={'Content-Type': 'application/json'}
+                )
+            
             if response.status_code == 204:
+                logger.info(f"Discord: Message sent successfully")
                 return jsonify({'status': 'success'})
             else:
+                logger.error(f"Discord: Failed with status {response.status_code}: {response.text}")
                 return jsonify({'error': f'Discord webhook failed: {response.status_code} - {response.text}'}), 500
         except Exception as e:
             logger.error(f"Discord webhook error: {e}", exc_info=True)
@@ -321,20 +389,89 @@ def send_to_channel_api():
     if channel_id.startswith('https://discord.com/api/webhooks/'):
         try:
             if image_url:
-                # Discord doesn't support images the same way, so we'll just send the text with the image URL
-                payload = {'content': f"{text}\n{image_url}" if text else image_url}
+                # Преобразовать image_url в бинарные данные и отправить как multipart/form-data
+                logger.info(f"Discord: Processing image_url for multipart upload")
+                
+                image_data = None
+                image_filename = 'image.jpg'
+                image_mimetype = 'image/jpeg'
+                
+                # Определить тип image_url и получить данные
+                if image_url.startswith('data:image/'):
+                    # Data URL с base64
+                    try:
+                        mime_part = image_url.split(';')[0].replace('data:', '')
+                        image_mimetype = mime_part
+                        if mime_part == 'image/png':
+                            image_filename = 'image.png'
+                        elif mime_part == 'image/gif':
+                            image_filename = 'image.gif'
+                        elif mime_part == 'image/webp':
+                            image_filename = 'image.webp'
+                        
+                        base64_data = image_url.split(',')[1]
+                        image_data = base64.b64decode(base64_data)
+                        logger.info(f"Discord: Decoded data URL, size: {len(image_data)} bytes")
+                    except Exception as e:
+                        logger.error(f"Discord: Error decoding data URL: {e}")
+                        raise
+                
+                elif not image_url.startswith('http'):
+                    # Обычная base64 строка
+                    try:
+                        image_data = base64.b64decode(image_url)
+                        logger.info(f"Discord: Decoded base64 string, size: {len(image_data)} bytes")
+                    except Exception as e:
+                        logger.error(f"Discord: Error decoding base64: {e}")
+                        raise
+                
+                else:
+                    # Это URL - скачать файл
+                    try:
+                        logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
+                        response = requests.get(image_url, timeout=30)
+                        response.raise_for_status()
+                        image_data = response.content
+                        logger.info(f"Discord: Downloaded image, size: {len(image_data)} bytes")
+                        
+                        # Определить MIME тип из URL если возможно
+                        if image_url.lower().endswith('.png'):
+                            image_mimetype = 'image/png'
+                            image_filename = 'image.png'
+                        elif image_url.lower().endswith('.gif'):
+                            image_mimetype = 'image/gif'
+                            image_filename = 'image.gif'
+                        elif image_url.lower().endswith('.webp'):
+                            image_mimetype = 'image/webp'
+                            image_filename = 'image.webp'
+                    except Exception as e:
+                        logger.error(f"Discord: Error downloading image from URL: {e}")
+                        raise
+                
+                # Отправить в multipart/form-data
+                files = {'file': (image_filename, BytesIO(image_data), image_mimetype)}
+                data = {'content': text} if text else {}
+                
+                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
+                response = requests.post(channel_id, files=files, data=data)
             else:
+                # Только текст
                 payload = {'content': text}
-            response = requests.post(
-                channel_id,
-                data=json.dumps(payload),
-                headers={'Content-Type': 'application/json'}
-            )
+                logger.info(f"Discord: Sending text only")
+                response = requests.post(
+                    channel_id,
+                    data=json.dumps(payload),
+                    headers={'Content-Type': 'application/json'}
+                )
+            
             if response.status_code == 204:
+                logger.info(f"Discord: Message sent successfully")
                 return jsonify({'status': 'success'})
             else:
+                logger.error(f"Discord: Failed with status {response.status_code}: {response.text}")
                 return jsonify({'error': f'Discord webhook failed: {response.status_code} - {response.text}'}), 500
         except Exception as e:
+            logger.error(f"Discord webhook error: {e}", exc_info=True)
             return jsonify({'error': str(e)}), 500
     
     # Otherwise, treat as Telegram channel ID
