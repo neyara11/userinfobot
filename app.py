@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "2.2.0-event-loop-fix"
+APP_VERSION = "2.2.1-proxy"
 logger.info(f"=============== App Version: {APP_VERSION} ===============")
 
 class UserInfoBot:
