@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "2.2.1-proxy"
+APP_VERSION = "2.2.2-proxy"
 logger.info(f"=============== App Version: {APP_VERSION} ===============")
 
 class UserInfoBot:
@@ -195,6 +195,7 @@ class UserInfoBot:
         - base64 строкой (data:image/...;base64,...)
         - просто base64 данными
         """
+        logger.info(f"Отправка сообщения в чат {chat_id}: {'через прокси' if proxy_config.is_telegram_proxy_enabled() else 'без прокси'}")
         logger.warning(f">>> send_media CALLED: chat_id={chat_id}, text={text is not None}, image_url={image_url is not None}")
         if image_url:
             logger.warning(f">>> image_url type: {type(image_url)}, length: {len(image_url) if image_url else 0}, first 100 chars: {image_url[:100] if image_url else 'NONE'}")
@@ -375,14 +376,16 @@ def send_message_api():
                 files = {'file': (image_filename, BytesIO(image_data), image_mimetype)}
                 data = {'content': text} if text else {}
                 
-                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
                 proxies = proxy_config.get_discord_proxy_dict()
+                logger.info(f"Отправка в Discord: {'через прокси' if bool(proxies) else 'без прокси'}")
+                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
                 response = requests.post(chat_id, files=files, data=data, proxies=proxies)
             else:
                 # Только текст
                 payload = {'content': text}
-                logger.info(f"Discord: Sending text only")
                 proxies = proxy_config.get_discord_proxy_dict()
+                logger.info(f"Отправка в Discord: {'через прокси' if bool(proxies) else 'без прокси'}")
+                logger.info(f"Discord: Sending text only")
                 response = requests.post(
                     chat_id,
                     data=json.dumps(payload),
@@ -500,14 +503,16 @@ def send_to_channel_api():
                 files = {'file': (image_filename, BytesIO(image_data), image_mimetype)}
                 data = {'content': text} if text else {}
                 
-                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
                 proxies = proxy_config.get_discord_proxy_dict()
+                logger.info(f"Отправка в Discord: {'через прокси' if bool(proxies) else 'без прокси'}")
+                logger.info(f"Discord: Sending image as multipart, filename: {image_filename}, content: {text is not None}")
                 response = requests.post(channel_id, files=files, data=data, proxies=proxies)
             else:
                 # Только текст
                 payload = {'content': text}
-                logger.info(f"Discord: Sending text only")
                 proxies = proxy_config.get_discord_proxy_dict()
+                logger.info(f"Отправка в Discord: {'через прокси' if bool(proxies) else 'без прокси'}")
+                logger.info(f"Discord: Sending text only")
                 response = requests.post(
                     channel_id,
                     data=json.dumps(payload),
@@ -555,6 +560,8 @@ def run_telegram_bot():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     user_info_bot.loop = loop  # Save the loop reference
+    
+    logger.info(f"Статус подключения к Telegram: {'через прокси' if proxy_config.is_telegram_proxy_enabled() else 'без прокси'}")
     
     async def start_bot():
         if not user_info_bot.application:
