@@ -393,8 +393,8 @@ def send_message_api():
                     proxies=proxies
                 )
             
-            if response.status_code == 204:
-                logger.info(f"Discord: Message sent successfully")
+            if response.status_code in (200, 204):
+                logger.info(f"Discord: Message sent successfully (status {response.status_code})")
                 return jsonify({'status': 'success'})
             else:
                 logger.error(f"Discord: Failed with status {response.status_code}: {response.text}")
@@ -520,8 +520,8 @@ def send_to_channel_api():
                     proxies=proxies
                 )
             
-            if response.status_code == 204:
-                logger.info(f"Discord: Message sent successfully")
+            if response.status_code in (200, 204):
+                logger.info(f"Discord: Message sent successfully (status {response.status_code})")
                 return jsonify({'status': 'success'})
             else:
                 logger.error(f"Discord: Failed with status {response.status_code}: {response.text}")
