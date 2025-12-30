@@ -282,7 +282,9 @@ app = Flask(__name__)
 
 # Generate a secure API token if not provided in environment
 API_TOKEN = os.getenv('API_TOKEN', secrets.token_urlsafe(32))
-print(f"API Token: {API_TOKEN}")  # Print the token for user to see
+# Маскируем токен для безопасности - показываем только первые и последние 4 символа
+masked_token = f"{API_TOKEN[:4]}...{API_TOKEN[-4:]}" if len(API_TOKEN) > 8 else "***"
+print(f"API Token: {masked_token}")  # Print masked token for user to see
 
 def require_api_token(f):
     """Decorator to require API token for authentication."""
