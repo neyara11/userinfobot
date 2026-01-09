@@ -447,8 +447,9 @@ def send_message_api():
             logger.warning("Event loop not running, using asyncio.run")
             result = asyncio.run(user_info_bot.send_media(chat_id, text=text, image_url=image_url))
         
-        logger.info(f"Successfully sent message/photo with message_id: {result.message_id}")
-        return jsonify({'status': 'success', 'message_id': result.message_id})
+        msg_id = result['message_id'] if isinstance(result, dict) else result.message_id
+        logger.info(f"Successfully sent message/photo with message_id: {msg_id}")
+        return jsonify({'status': 'success', 'message_id': msg_id})
     except Exception as e:
         logger.error(f"Error in send_message_api: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
