@@ -1,4 +1,4 @@
-python-telegram-bot==20.8
+"python-telegram-bot[socks]==20.8"
 asyncio
 aiohttp
 python-dotenv==1.0

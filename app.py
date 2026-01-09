@@ -285,16 +285,9 @@ class UserInfoBot:
             
             # Если Telegram прокси включен, попытаться использовать его
             if proxy_config.is_telegram_proxy_enabled():
-                try:
-                    import aiohttp
-                    if SocksConnector is not None:
-                        proxy_url = proxy_config.get_telegram_proxy()
-                        connector = SocksConnector.from_url(proxy_url)
-                        session = aiohttp.ClientSession(connector=connector)
-                        logger.info(f"Использую SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
-                        builder = builder.http_session(session=session)
-                except Exception as e:
-                    logger.error(f"Ошибка при использовании SOCKS прокси для Telegram: {e}", exc_info=True)
+                proxy_url = proxy_config.get_telegram_proxy()
+                logger.info(f"Использую SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
+                builder = builder.proxy(proxy_url).get_updates_proxy(proxy_url)
             
             self.application = builder.build()
             self.bot = self.application.bot
