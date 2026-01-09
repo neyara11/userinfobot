@@ -36,7 +36,7 @@ class UserInfoBot:
         self.application = None
         self.bot = None
         self.loop = None  # Event loop из telegram потока
-        self._get_telegram_client_session()  # Инициализировать клиент с прокси если нужен
+        # self._get_telegram_client_session()  # Disabled: no running loop in sync __init__
         self.translations = {
             'en': {
                 'forwarded_user_info': 'Forwarded User Info:',
@@ -260,8 +260,9 @@ class UserInfoBot:
         connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
         
         # Use telegram proxy if enabled
-        if hasattr(proxy_config, 'telegram_proxy_url') and proxy_config.telegram_proxy_url:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxy_config.telegram_proxy_url)
+        proxy_url = proxy_config.get_telegram_proxy()
+        if proxy_url:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy_url)
         
         async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
             async with session.post(url, data=form) as resp:
@@ -291,7 +292,7 @@ class UserInfoBot:
                         connector = SocksConnector.from_url(proxy_url)
                         session = aiohttp.ClientSession(connector=connector)
                         logger.info(f"Использую SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
-                        builder = builder.get_post(session=session)
+                        builder = builder.http_session(session=session)
                 except Exception as e:
                     logger.error(f"Ошибка при использовании SOCKS прокси для Telegram: {e}", exc_info=True)
             
@@ -610,7 +611,7 @@ def run_telegram_bot():
                         connector = SocksConnector.from_url(proxy_url)
                         session = aiohttp.ClientSession(connector=connector)
                         logger.info(f"Используя SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
-                        builder = builder.get_post(session=session)
+                        builder = builder.http_session(session=session)
                 except Exception as e:
                     logger.error(f"Ошибка при использовании SOCKS прокси для Telegram: {e}", exc_info=True)
             
