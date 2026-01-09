@@ -434,7 +434,7 @@ def send_message_api():
     
     # Otherwise, treat as Telegram chat ID
     try:
-        logger.info(f"Preparing to send media via Telegram. image_url={image_url}")
+        logger.info(f"Preparing to send media via Telegram. image_url={image_url[:50] if image_url else None}")
         # Use the event loop from telegram thread via run_coroutine_threadsafe
         if user_info_bot.loop and user_info_bot.loop.is_running():
             logger.info("Using existing event loop from telegram thread")
@@ -573,7 +573,9 @@ def send_to_channel_api():
             logger.warning("Event loop not running, using asyncio.run")
             result = asyncio.run(user_info_bot.send_media(channel_id, text=text, image_url=image_url))
         
-        return jsonify({'status': 'success', 'message_id': result.message_id})
+        msg_id = result['message_id'] if isinstance(result, dict) else result.message_id
+        logger.info(f"Successfully sent message/photo with message_id: {msg_id}")
+        return jsonify({'status': 'success', 'message_id': msg_id})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
