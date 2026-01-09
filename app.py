@@ -604,8 +604,6 @@ def run_telegram_bot():
             
             # Если Telegram прокси включен, попытаться использовать его
             if proxy_config.is_telegram_proxy_enabled():
-                try:
-            if proxy_config.is_telegram_proxy_enabled():
                 proxy_url = proxy_config.get_telegram_proxy()
                 logger.info(f"Используя SOCKS прокси для Telegram: {proxy_config._mask_proxy_url(proxy_url)}")
                 builder = builder.proxy(proxy_url).get_updates_proxy(proxy_url)
