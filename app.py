@@ -380,7 +380,7 @@ def send_message_api():
                 else:
                     # Это URL - скачать файл
                     try:
-                        logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
+                        logger.info(f"Discord: Downloading image from URL: {image_url[:50]}")
                         proxies = proxy_config.get_discord_proxy_dict()
                         response = requests.get(image_url, timeout=30, proxies=proxies)
                         response.raise_for_status()
@@ -507,7 +507,7 @@ def send_to_channel_api():
                 else:
                     # Это URL - скачать файл
                     try:
-                        logger.info(f"Discord: Downloading image from URL: {image_url[:100]}")
+                        logger.info(f"Discord: Downloading image from URL: {image_url[:50]}")
                         proxies = proxy_config.get_discord_proxy_dict()
                         response = requests.get(image_url, timeout=30, proxies=proxies)
                         response.raise_for_status()
