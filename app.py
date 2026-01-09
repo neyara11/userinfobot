@@ -204,7 +204,7 @@ class UserInfoBot:
         
         try:
             if image_url:
-                logger.warning(f">>> SENDING PHOTO! image_url={image_url[:100]}")
+                logger.warning(f">>> SENDING PHOTO! image_url length={len(image_url)}")
                 
                 # Проверить если это base64
                 if image_url.startswith('data:image/') or not image_url.startswith('http'):
