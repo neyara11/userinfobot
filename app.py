@@ -12,6 +12,8 @@ import threading
 import secrets
 import base64
 from io import BytesIO
+import aiohttp
+import aiohttp_socks
 import time
 import concurrent.futures
 from proxy_config import proxy_config
@@ -198,7 +200,7 @@ class UserInfoBot:
         logger.info(f"Отправка сообщения в чат {chat_id}: {'через прокси' if proxy_config.is_telegram_proxy_enabled() else 'без прокси'}")
         logger.warning(f">>> send_media CALLED: chat_id={chat_id}, text={text is not None}, image_url={image_url is not None}")
         if image_url:
-            logger.warning(f">>> image_url type: {type(image_url)}, length: {len(image_url) if image_url else 0}, first 100 chars: {image_url[:100] if image_url else 'NONE'}")
+            logger.warning(f">>> image_url type: {type(image_url)}, length: {len(image_url) if image_url else 0}, first 50 chars: {image_url[:50] if image_url else 'NONE'}")
         
         try:
             if image_url:
