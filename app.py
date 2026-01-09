@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "2.2.2-proxy"
+APP_VERSION = "2.2.3-direct-photo"
 logger.info(f"=============== App Version: {APP_VERSION} ===============")
 
 class UserInfoBot:
@@ -227,10 +227,14 @@ class UserInfoBot:
                     photo = image_url
                     logger.warning(f">>> Detected URL image, sending to Telegram: {photo[:100]}")
                 
-                # Отправить фото с текстом как подписью
-                logger.warning(f">>> Calling bot.send_photo with photo type={type(photo)}, caption={text}")
-                result = await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
-                logger.warning(f">>> Photo sent successfully, message_id: {result.message_id}")
+                # Отправить фото: direct API для BytesIO, aiogram для URL/file_id
+                logger.warning(f">>> Sending photo, type={type(photo)}")
+                if isinstance(photo, BytesIO):
+                    result = await self._send_photo_direct(chat_id, photo, text, **kwargs)
+                    logger.warning(f">>> Direct API photo sent, message_id: {result.get('message_id')}")
+                else:
+                    result = await self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, **kwargs)
+                    logger.warning(f">>> Aiogram photo sent, message_id: {result.message_id}")
             else:
                 # Отправить просто текст
                 logger.warning(f">>> SENDING TEXT MESSAGE (no image_url)")
@@ -241,6 +245,33 @@ class UserInfoBot:
             raise
         
         return result
+
+    async def _send_photo_direct(self, chat_id: str, photo: BytesIO, caption: str, **kwargs):
+        """Direct aiohttp POST to Telegram API for photo upload (fallback for timeouts)."""
+        url = f"https://api.telegram.org/bot{self.bot.token}/sendPhoto"
+        
+        form = aiohttp.FormData()
+        form.add_field('chat_id', chat_id)
+        if caption:
+            form.add_field('caption', caption)
+        form.add_field('photo', photo.getvalue(), filename='image.png', content_type='image/png')
+        
+        timeout = aiohttp.ClientTimeout(total=90)
+        connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
+        
+        # Use telegram proxy if enabled
+        if hasattr(proxy_config, 'telegram_proxy_url') and proxy_config.telegram_proxy_url:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy_config.telegram_proxy_url)
+        
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            async with session.post(url, data=form) as resp:
+                data = await resp.json(content_type=None)
+                if data['ok']:
+                    logger.info(f">>> Direct API success, message_id: {data['result']['message_id']}")
+                    return data['result']
+                else:
+                    logger.error(f">>> Direct API error: {data.get('description', data)}")
+                    raise Exception(data.get('description', 'Unknown error'))
 
     async def run_async(self, token: Optional[str] = None):
         """Run the bot with the provided token asynchronously."""
